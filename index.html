@@ -1020,7 +1020,7 @@
       checkoutButton.classList.toggle("disabled", entries.length === 0);
       if (!entries.length) {
         cartItemsElement.innerHTML = '<div class="cart-empty"><span aria-hidden="true">♧</span><strong>העגלה עדיין ריקה</strong><div>הוסיפו את החולצה הראשונה שלכם.</div></div>';
-        checkoutButton.setAttribute("href", "https://wa.me/");
+        checkoutButton.setAttribute("href", "https://wa.me/972509447977");
         return;
       }
       cartItemsElement.innerHTML = entries.map(({ product, size, quantity: count, playerName = "", patchId = "" }) => {
@@ -1036,7 +1036,7 @@
         return `• ${product.title} | מידה ${size} | כמות ${count}${customizations.length ? ` | ${customizations.join(" | ")} | תוספת תשלום לתיאום` : ""}`;
       });
       const message = `שלום, אשמח להזמין:\n${orderLines.join("\n")}`;
-      checkoutButton.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      checkoutButton.href = `https://wa.me/972509447977?text=${encodeURIComponent(message)}`;
     }
 
     function showToast(message) {
