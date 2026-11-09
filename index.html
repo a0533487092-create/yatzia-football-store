@@ -244,6 +244,11 @@
     .product-title { min-height: 49px; margin: 0; font-size: .89rem; font-weight: 800; line-height: 1.5; }
     .product-details { display: block; margin-top: 5px; padding: 0; border: 0; background: transparent; color: #aab8bf; cursor: pointer; font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; }
     .product-details:hover { color: var(--lime); }
+    .personalization-field { display: block; margin-top: 11px; color: #aab8bf; font-size: .71rem; font-weight: 700; }
+    .personalization-input { width: 100%; height: 38px; margin-top: 5px; padding: 0 10px; border: 1px solid #2a3944; border-radius: 8px; outline: none; background: #0c1218; color: var(--text); font-size: .82rem; }
+    .personalization-input:focus { border-color: var(--lime); }
+    .personalized-name-overlay { position: absolute; z-index: 2; top: 63%; left: 50%; max-width: 90%; overflow: hidden; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,.24); color: #fff; font-size: .77rem; font-weight: 950; line-height: 1.4; text-align: center; text-overflow: ellipsis; text-shadow: 0 1px 5px #000, 0 0 2px #000; transform: translate(-50%, -50%); white-space: nowrap; pointer-events: none; }
+    .product-visual .personalized-name-overlay { top: 64%; font-size: .65rem; }
     .product-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; }
     .size-select { height: 35px; max-width: 95px; padding: 0 8px; border: 1px solid #2a3944; border-radius: 8px; background: #0c1218; color: var(--text); font-size: .76rem; }
     .add-button { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: center; gap: 8px; margin-top: 11px; border: 1px solid rgba(200,255,72,.3); border-radius: 9px; background: rgba(200,255,72,.08); color: var(--lime); cursor: pointer; font-size: .81rem; font-weight: 900; transition: background .2s, color .2s; }
@@ -316,14 +321,16 @@
     .product-dialog::backdrop { background: rgba(0,0,0,.78); backdrop-filter: blur(5px); }
     .product-dialog-inner { position: relative; display: grid; min-height: 460px; grid-template-columns: 1fr 1fr; }
     .product-dialog-close { position: absolute; z-index: 2; top: 14px; left: 14px; }
-    .product-dialog-visual { display: grid; min-height: 460px; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, rgba(102,128,70,.24), transparent 66%), #0c1218; }
+    .product-dialog-visual { position: relative; display: grid; min-height: 460px; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, rgba(102,128,70,.24), transparent 66%), #0c1218; }
     .product-dialog-visual .jersey-art { width: min(76%, 310px); height: auto; filter: drop-shadow(0 22px 23px #0008); }
     .product-dialog-visual .product-real-photo { width: 100%; height: 100%; max-height: 460px; padding: 18px; }
+    .product-dialog-visual .personalized-name-overlay { top: 63%; font-size: 1.2rem; }
     .product-dialog-info { display: flex; flex-direction: column; justify-content: center; padding: 42px 32px; }
     .product-dialog-info h2 { margin: 10px 0 5px; font-size: clamp(1.35rem, 3vw, 1.9rem); line-height: 1.35; }
     .product-dialog-meta { color: var(--muted); font-size: .87rem; }
     .product-dialog-info label { margin-bottom: 6px; color: #d3dcdf; font-size: .8rem; font-weight: 800; }
     .product-dialog-info .size-select { width: 100%; max-width: none; height: 45px; }
+    .product-dialog-info .personalization-input { height: 45px; margin: 0 0 14px; }
     .product-dialog-info .add-button { min-height: 47px; margin-top: 13px; }
     .product-photo-note { margin: 16px 0 0; color: #87959d; font-size: .72rem; line-height: 1.6; }
     .product-photo-note a { color: var(--cyan); text-underline-offset: 3px; }
@@ -516,6 +523,8 @@
         <span class="eyebrow" id="productDialogBadge"></span>
         <h2 id="productDialogTitle"></h2>
         <div class="product-dialog-meta" id="productDialogMeta"></div>
+        <label for="dialogPlayerName">שם להדפסה (לא חובה)</label>
+        <input class="personalization-input" id="dialogPlayerName" type="text" autocomplete="off" placeholder="לדוגמה: ירין">
         <label for="dialogSize">בחירת מידה</label>
         <select class="size-select" id="dialogSize"><option value="">בחרו מידה</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option></select>
         <button class="add-button" id="dialogAdd" type="button"><span aria-hidden="true">＋</span> הוסף לעגלה</button>
@@ -685,6 +694,7 @@
     const toast = document.querySelector("#toast");
     const productDialog = document.querySelector("#productDialog");
     const dialogSize = document.querySelector("#dialogSize");
+    const dialogPlayerName = document.querySelector("#dialogPlayerName");
     const cart = new Map();
     let quickKit = "all";
     let quickEra = "all";
@@ -695,10 +705,19 @@
     let shownProducts = 0;
     const productsPerPage = 24;
 
-    function jerseySvg(team, color, type, uniqueId) {
+    function jerseySvg(team, color, type, uniqueId, playerName = "") {
       const base = color;
       const accent = type === "home" ? team.secondary : team.primary;
       const clipId = `shirt-${uniqueId.replace(/[^a-zA-Z0-9-]/g, "-")}`;
+      const printedName = playerName.trim();
+      const escapedName = printedName.replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&apos;"
+      })[character]);
+      const nameFontSize = Math.max(5, Math.min(12, 118 / Math.max([...printedName].length, 1)));
       let shirtPattern = "";
       if (team.pattern === "stripes") {
         shirtPattern = `<path d="M43 29h16v166H43zm38 0h17v166H81zm39 0h16v166h-16z"/>`;
@@ -716,7 +735,7 @@
         shirtPattern = `<path d="M25 48h130v3H25zm0 42h130v3H25zm0 49h130v3H25z"/>`;
       }
       const patternOpacity = team.pattern === "solid" ? ".25" : ".96";
-      return `<svg class="jersey-art" viewBox="0 0 180 215" role="img" aria-label="הדמיית חולצת ${team.name}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="${clipId}"><path d="M56 23 73 15h34l17 8 34 19-17 42-18-9v113H57V75l-18 9-17-42z"/></clipPath><linearGradient id="${clipId}-shade" x1="0" x2="1"><stop stop-color="#000" stop-opacity=".16"/><stop offset=".48" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient></defs><path d="M56 23 73 15h34l17 8 34 19-17 42-18-9v113H57V75l-18 9-17-42z" fill="${base}" stroke="rgba(255,255,255,.68)" stroke-width="2.5" stroke-linejoin="round"/><g clip-path="url(#${clipId})"><rect x="18" y="15" width="147" height="180" fill="${base}"/><g fill="${accent}" opacity="${patternOpacity}">${shirtPattern}</g><rect x="18" y="15" width="147" height="180" fill="url(#${clipId}-shade)"/></g><path d="m56 23-17 61-18-10-7-10 17-28zm68 0 17 61 18-10 7-10-17-28z" fill="${base}" stroke="rgba(255,255,255,.52)" stroke-width="2" stroke-linejoin="round"/><path d="M73 16q17 19 34 0" fill="none" stroke="${accent}" stroke-width="7" stroke-linecap="round"/><path d="M59 74v115m62-115v115" stroke="rgba(255,255,255,.16)" stroke-width="2"/><path d="m130 54 7-5-7-5-7 5z" fill="${accent}" stroke="rgba(255,255,255,.7)" stroke-width="1"/><circle cx="89" cy="79" r="13" fill="rgba(9,13,18,.34)"/><text x="89" y="82.5" fill="#fff" font-size="${team.mark.length > 3 ? 5.5 : 7}" font-family="Arial,sans-serif" font-weight="800" text-anchor="middle" direction="rtl">${team.mark}</text><text x="89" y="126" fill="rgba(255,255,255,.72)" font-size="7" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1.5" text-anchor="middle">FOOTBALL</text></svg>`;
+      return `<svg class="jersey-art" viewBox="0 0 180 215" role="img" aria-label="הדמיית חולצת ${team.name}${printedName ? ` עם השם ${escapedName}` : ""}" xmlns="http://www.w3.org/2000/svg"><defs><clipPath id="${clipId}"><path d="M56 23 73 15h34l17 8 34 19-17 42-18-9v113H57V75l-18 9-17-42z"/></clipPath><linearGradient id="${clipId}-shade" x1="0" x2="1"><stop stop-color="#000" stop-opacity=".16"/><stop offset=".48" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient></defs><path d="M56 23 73 15h34l17 8 34 19-17 42-18-9v113H57V75l-18 9-17-42z" fill="${base}" stroke="rgba(255,255,255,.68)" stroke-width="2.5" stroke-linejoin="round"/><g clip-path="url(#${clipId})"><rect x="18" y="15" width="147" height="180" fill="${base}"/><g fill="${accent}" opacity="${patternOpacity}">${shirtPattern}</g><rect x="18" y="15" width="147" height="180" fill="url(#${clipId}-shade)"/></g><path d="m56 23-17 61-18-10-7-10 17-28zm68 0 17 61 18-10 7-10-17-28z" fill="${base}" stroke="rgba(255,255,255,.52)" stroke-width="2" stroke-linejoin="round"/><path d="M73 16q17 19 34 0" fill="none" stroke="${accent}" stroke-width="7" stroke-linecap="round"/><path d="M59 74v115m62-115v115" stroke="rgba(255,255,255,.16)" stroke-width="2"/><path d="m130 54 7-5-7-5-7 5z" fill="${accent}" stroke="rgba(255,255,255,.7)" stroke-width="1"/><circle cx="89" cy="79" r="13" fill="rgba(9,13,18,.34)"/><text x="89" y="82.5" fill="#fff" font-size="${team.mark.length > 3 ? 5.5 : 7}" font-family="Arial,sans-serif" font-weight="800" text-anchor="middle" direction="rtl">${team.mark}</text>${printedName ? `<text x="89" y="124" textLength="110" lengthAdjust="spacingAndGlyphs" fill="#fff" stroke="rgba(0,0,0,.36)" stroke-width=".6" paint-order="stroke" font-size="${nameFontSize}" font-family="Arial,sans-serif" font-weight="800" text-anchor="middle" direction="rtl">${escapedName}</text>` : '<text x="89" y="126" fill="rgba(255,255,255,.72)" font-size="7" font-family="Arial,sans-serif" font-weight="700" letter-spacing="1.5" text-anchor="middle">FOOTBALL</text>'}</svg>`;
     }
 
     function populateFilters() {
@@ -777,34 +796,59 @@
           ? `<img class="product-real-photo" src="${product.image}" alt="${product.imageAlt}" loading="lazy">`
           : jerseySvg(team, product.color, product.type, product.id);
         const legendBadge = product.isLegend ? `<span class="kit-badge retro-badge" style="top:44px;left:auto;right:12px">${product.legend}</span>` : "";
-        return `<article class="product-card"><button class="product-visual" type="button" data-preview="${product.id}" aria-label="הצגת החולצה: ${product.title}">${artwork}<span class="season-tag">${product.season}</span><span class="kit-badge${retro}">${type.title}</span>${legendBadge}</button><div class="product-info"><div class="product-team">${product.isLegend ? `אגדת כדורגל · ${product.legend}` : `${team.league} · ${seasonNote}`}</div><h3 class="product-title">${product.title}</h3><button class="product-details" type="button" data-preview="${product.id}">לפרטים ולתצוגה מוגדלת</button><div class="product-bottom"><label class="sr-only" for="size-${product.id}">בחירת מידה — ${product.title}</label><select class="size-select" id="size-${product.id}" aria-label="מידה עבור ${product.title}"><option value="">מידה</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option></select></div><button class="add-button" type="button" data-add="${product.id}"><span aria-hidden="true">＋</span> הוסף לעגלה</button></div></article>`;
+        return `<article class="product-card"><button class="product-visual" type="button" data-preview="${product.id}" aria-label="הצגת החולצה: ${product.title}">${artwork}${product.image ? `<span class="personalized-name-overlay" data-name-overlay="${product.id}" hidden></span>` : ""}<span class="season-tag">${product.season}</span><span class="kit-badge${retro}">${type.title}</span>${legendBadge}</button><div class="product-info"><div class="product-team">${product.isLegend ? `אגדת כדורגל · ${product.legend}` : `${team.league} · ${seasonNote}`}</div><h3 class="product-title">${product.title}</h3><button class="product-details" type="button" data-preview="${product.id}">לפרטים ולתצוגה מוגדלת</button><label class="personalization-field" for="name-${product.id}">שם להדפסה (לא חובה)<input class="personalization-input" id="name-${product.id}" data-personalization="${product.id}" type="text" autocomplete="off" placeholder="לדוגמה: ירין"></label><div class="product-bottom"><label class="sr-only" for="size-${product.id}">בחירת מידה — ${product.title}</label><select class="size-select" id="size-${product.id}" aria-label="מידה עבור ${product.title}"><option value="">מידה</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option></select></div><button class="add-button" type="button" data-add="${product.id}"><span aria-hidden="true">＋</span> הוסף לעגלה</button></div></article>`;
       }).join(""));
       document.querySelector("#loadMore").hidden = shownProducts >= filteredProducts.length;
       resultsCount.innerHTML = `מוצגות <strong>${shownProducts}</strong> מתוך <strong>${filteredProducts.length}</strong> חולצות`;
     }
 
-    function addToCart(product, size) {
-      const key = `${product.id}|${size}`;
+    function normalizePlayerName(name) {
+      return name.trim();
+    }
+
+    function escapeHtml(value) {
+      return value.replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    function renderDialogArtwork(name) {
+      const visual = document.querySelector("#productDialogVisual");
+      const playerName = normalizePlayerName(name);
+      if (activeProduct.image) {
+        visual.innerHTML = "";
+        const image = document.createElement("img");
+        image.className = "product-real-photo";
+        image.src = activeProduct.image;
+        image.alt = activeProduct.imageAlt;
+        visual.append(image);
+        if (playerName) {
+          const overlayName = document.createElement("span");
+          overlayName.className = "personalized-name-overlay";
+          overlayName.textContent = playerName;
+          visual.append(overlayName);
+        }
+        return;
+      }
+      visual.innerHTML = jerseySvg(teamById[activeProduct.teamId], activeProduct.color, activeProduct.type, `detail-${activeProduct.id}`, playerName);
+    }
+
+    function addToCart(product, size, playerName) {
+      const key = JSON.stringify([product.id, size, playerName]);
       const existing = cart.get(key);
-      cart.set(key, { product, size, quantity: existing ? existing.quantity + 1 : 1 });
+      cart.set(key, { product, size, playerName, quantity: existing ? existing.quantity + 1 : 1 });
       renderCart();
-      showToast(`${product.title} — מידה ${size} נוספה לעגלה`);
+      showToast(`${product.title} — מידה ${size}${playerName ? `, הדפסה: ${playerName}` : ""} נוספה לעגלה`);
     }
 
     function openProductDialog(product) {
       activeProduct = product;
       const team = teamById[product.teamId];
-      const visual = document.querySelector("#productDialogVisual");
-      if (product.image) {
-        visual.innerHTML = "";
-        const image = document.createElement("img");
-        image.className = "product-real-photo";
-        image.src = product.image;
-        image.alt = product.imageAlt;
-        visual.append(image);
-      } else {
-        visual.innerHTML = jerseySvg(team, product.color, product.type, `detail-${product.id}`);
-      }
+      renderDialogArtwork(dialogPlayerName.value);
       document.querySelector("#productDialogBadge").textContent = product.isLegend ? `אגדת כדורגל · ${product.legend}` : typesById[product.type].title;
       document.querySelector("#productDialogTitle").textContent = product.title;
       document.querySelector("#productDialogMeta").textContent = `${team.league} · עונת ${product.season}`;
@@ -837,11 +881,13 @@
         checkoutButton.setAttribute("href", "https://wa.me/");
         return;
       }
-      cartItemsElement.innerHTML = entries.map(({ product, size, quantity: count }) => {
+      cartItemsElement.innerHTML = entries.map(({ product, size, quantity: count, playerName = "" }) => {
         const team = teamById[product.teamId];
-        return `<article class="cart-item"><div class="cart-thumb">${jerseySvg(team, product.color, product.type, `cart-${product.id}`)}</div><div><h3 class="cart-item-title">${product.title}</h3><div class="cart-item-meta">מידה ${size} · ${typesById[product.type].title}</div><div class="quantity-control" aria-label="עדכון כמות"><button type="button" data-quantity="-1" data-key="${product.id}|${size}" aria-label="הפחתת כמות">−</button><span>${count}</span><button type="button" data-quantity="1" data-key="${product.id}|${size}" aria-label="הוספת כמות">＋</button></div></div><div class="cart-item-side"><button class="remove-button" type="button" data-remove="${product.id}|${size}">הסרה</button></div></article>`;
+        const key = JSON.stringify([product.id, size, playerName]);
+        const safeName = escapeHtml(playerName);
+        return `<article class="cart-item"><div class="cart-thumb">${jerseySvg(team, product.color, product.type, `cart-${product.id}`, playerName)}</div><div><h3 class="cart-item-title">${product.title}</h3><div class="cart-item-meta">מידה ${size} · ${typesById[product.type].title}${playerName ? ` · שם להדפסה: ${safeName}` : ""}</div><div class="quantity-control" aria-label="עדכון כמות"><button type="button" data-quantity="-1" data-key="${encodeURIComponent(key)}" aria-label="הפחתת כמות">−</button><span>${count}</span><button type="button" data-quantity="1" data-key="${encodeURIComponent(key)}" aria-label="הוספת כמות">＋</button></div></div><div class="cart-item-side"><button class="remove-button" type="button" data-remove="${encodeURIComponent(key)}">הסרה</button></div></article>`;
       }).join("");
-      const orderLines = entries.map(({ product, size, quantity: count }) => `• ${product.title} | מידה ${size} | כמות ${count}`);
+      const orderLines = entries.map(({ product, size, playerName, quantity: count }) => `• ${product.title} | מידה ${size} | כמות ${count}${playerName ? ` | שם להדפסה: ${playerName}` : ""}`);
       const message = `שלום, אשמח להזמין:\n${orderLines.join("\n")}`;
       checkoutButton.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
     }
@@ -952,7 +998,11 @@
       const previewButton = event.target.closest("[data-preview]");
       if (previewButton) {
         const selectedProduct = products.find((item) => item.id === previewButton.dataset.preview);
-        if (selectedProduct) openProductDialog(selectedProduct);
+        if (selectedProduct) {
+          const cardName = document.querySelector(`#name-${CSS.escape(selectedProduct.id)}`);
+          dialogPlayerName.value = cardName ? cardName.value : "";
+          openProductDialog(selectedProduct);
+        }
         return;
       }
       const button = event.target.closest("[data-add]");
@@ -964,8 +1014,25 @@
         showToast("בחרו מידה לפני ההוספה לעגלה");
         return;
       }
-      addToCart(product, sizeSelect.value);
+      const playerName = normalizePlayerName(document.querySelector(`#name-${CSS.escape(product.id)}`).value);
+      addToCart(product, sizeSelect.value, playerName);
     });
+    productGrid.addEventListener("input", (event) => {
+      const input = event.target.closest("[data-personalization]");
+      if (!input) return;
+      const product = products.find((item) => item.id === input.dataset.personalization);
+      if (!product) return;
+      const playerName = normalizePlayerName(input.value);
+      const visual = input.closest(".product-card").querySelector(".product-visual");
+      if (product.image) {
+        const overlayName = visual.querySelector("[data-name-overlay]");
+        overlayName.textContent = playerName;
+        overlayName.hidden = !playerName;
+        return;
+      }
+      visual.querySelector(".jersey-art").outerHTML = jerseySvg(teamById[product.teamId], product.color, product.type, product.id, playerName);
+    });
+    dialogPlayerName.addEventListener("input", () => renderDialogArtwork(dialogPlayerName.value));
     document.querySelector("#dialogAdd").addEventListener("click", () => {
       if (!activeProduct) return;
       if (!dialogSize.value) {
@@ -973,7 +1040,7 @@
         showToast("בחרו מידה לפני ההוספה לעגלה");
         return;
       }
-      addToCart(activeProduct, dialogSize.value);
+      addToCart(activeProduct, dialogSize.value, normalizePlayerName(dialogPlayerName.value));
       productDialog.close();
     });
     document.querySelector("#closeProductDialog").addEventListener("click", () => productDialog.close());
@@ -984,12 +1051,13 @@
       const quantityButton = event.target.closest("[data-quantity]");
       const removeButton = event.target.closest("[data-remove]");
       if (removeButton) {
-        cart.delete(removeButton.dataset.remove);
+        cart.delete(decodeURIComponent(removeButton.dataset.remove));
       } else if (quantityButton) {
-        const item = cart.get(quantityButton.dataset.key);
+        const key = decodeURIComponent(quantityButton.dataset.key);
+        const item = cart.get(key);
         if (!item) return;
         item.quantity += Number(quantityButton.dataset.quantity);
-        if (item.quantity <= 0) cart.delete(quantityButton.dataset.key);
+        if (item.quantity <= 0) cart.delete(key);
       } else {
         return;
       }
