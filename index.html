@@ -446,15 +446,21 @@
       </div>
       <div class="filters" aria-label="סינון הקטלוג">
         <div class="filter-control">
-          <label for="leagueFilter">ליגה / קטגוריה</label>
+          <label for="leagueFilter">ליגת המועדונים</label>
           <select id="leagueFilter">
             <option value="all">כל הליגות</option>
           </select>
         </div>
         <div class="filter-control">
-          <label for="teamFilter">קבוצה / נבחרת</label>
+          <label for="teamFilter">קבוצות</label>
           <select id="teamFilter">
             <option value="all">כל הקבוצות</option>
+          </select>
+        </div>
+        <div class="filter-control">
+          <label for="nationalTeamFilter">נבחרות</label>
+          <select id="nationalTeamFilter">
+            <option value="all">כל הנבחרות</option>
           </select>
         </div>
         <div class="filter-control">
@@ -720,6 +726,7 @@
     const productGrid = document.querySelector("#productGrid");
     const leagueFilter = document.querySelector("#leagueFilter");
     const teamFilter = document.querySelector("#teamFilter");
+    const nationalTeamFilter = document.querySelector("#nationalTeamFilter");
     const seasonFilter = document.querySelector("#seasonFilter");
     const typeFilter = document.querySelector("#typeFilter");
     const searchFilter = document.querySelector("#searchFilter");
@@ -807,9 +814,14 @@
     }
 
     function populateFilters() {
-      const leagues = [...new Set(teams.map((team) => team.league))];
+      const clubs = teams.filter((team) => team.league !== "נבחרות");
+      const nationalTeams = teams.filter((team) => team.league === "נבחרות");
+      const leagues = [...new Set(clubs.map((team) => team.league))];
       for (const league of leagues) {
         leagueFilter.add(new Option(league, league));
+      }
+      for (const team of nationalTeams) {
+        nationalTeamFilter.add(new Option(team.name, team.id));
       }
       for (const season of seasons) {
         seasonFilter.add(new Option(season.label, season.id));
@@ -819,7 +831,7 @@
 
     function updateTeamOptions() {
       const selectedTeam = teamFilter.value;
-      const eligibleTeams = teams.filter((team) => leagueFilter.value === "all" || team.league === leagueFilter.value);
+      const eligibleTeams = teams.filter((team) => team.league !== "נבחרות" && (leagueFilter.value === "all" || team.league === leagueFilter.value));
       teamFilter.replaceChildren(new Option("כל הקבוצות", "all"));
       for (const team of eligibleTeams) {
         teamFilter.add(new Option(team.name, team.id));
@@ -833,6 +845,7 @@
       const searchable = `${team.name} ${team.league} ${product.season} ${typesById[product.type].title} ${product.title} ${product.legend || ""}`.toLocaleLowerCase("he");
       return (leagueFilter.value === "all" || team.league === leagueFilter.value)
         && (teamFilter.value === "all" || product.teamId === teamFilter.value)
+        && (nationalTeamFilter.value === "all" || product.teamId === nationalTeamFilter.value)
         && (seasonFilter.value === "all" || product.season === seasonFilter.value)
         && (typeFilter.value === "all" || product.type === typeFilter.value)
         && (quickKit === "all" || product.type === quickKit)
@@ -1059,9 +1072,17 @@
     renderCart();
     document.querySelector("#loadMore").addEventListener("click", () => renderProducts(false));
 
-    [leagueFilter, teamFilter, seasonFilter, typeFilter].forEach((control) => {
+    [leagueFilter, teamFilter, nationalTeamFilter, seasonFilter, typeFilter].forEach((control) => {
       control.addEventListener("change", () => {
-        if (control === leagueFilter) updateTeamOptions();
+        if (control === leagueFilter) {
+          nationalTeamFilter.value = "all";
+          updateTeamOptions();
+        }
+        if (control === teamFilter && teamFilter.value !== "all") nationalTeamFilter.value = "all";
+        if (control === nationalTeamFilter && nationalTeamFilter.value !== "all") {
+          leagueFilter.value = "all";
+          teamFilter.value = "all";
+        }
         if (control === seasonFilter) {
           quickEra = "all";
           document.querySelectorAll("[data-era]").forEach((button) => button.classList.remove("active"));
@@ -1078,6 +1099,7 @@
       leagueFilter.value = "all";
       updateTeamOptions();
       teamFilter.value = "all";
+      nationalTeamFilter.value = "all";
       seasonFilter.value = "all";
       typeFilter.value = "all";
       searchFilter.value = "";
