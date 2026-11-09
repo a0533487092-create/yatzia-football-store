@@ -223,6 +223,11 @@
     .kit-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 19px; }
     .kit-tab { min-height: 35px; padding: 0 13px; border: 1px solid var(--line); border-radius: 99px; background: transparent; color: #acb7bd; cursor: pointer; font-size: .79rem; transition: .2s; }
     .kit-tab:hover, .kit-tab.active { border-color: var(--lime); background: rgba(200,255,72,.09); color: var(--lime); }
+    .season-shortcuts { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; }
+    .season-shortcuts-label { flex: 0 0 auto; color: #aab8bf; font-size: .75rem; font-weight: 800; }
+    .season-shortcuts-list { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 1px 8px; }
+    .season-shortcut { flex: 0 0 auto; min-height: 34px; padding: 0 11px; border: 1px solid var(--line); border-radius: 99px; background: #101820; color: #b9c3c8; cursor: pointer; font-size: .72rem; font-weight: 800; }
+    .season-shortcut:hover, .season-shortcut.active { border-color: var(--lime); background: rgba(200,255,72,.09); color: var(--lime); }
     .results-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; color: var(--muted); font-size: .78rem; }
     .results-line strong { color: #e7ecee; }
     .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 17px; }
@@ -494,6 +499,10 @@
         <button class="kit-tab" type="button" data-era="retro">רטרו / עונות קודמות</button>
         <button class="kit-tab" type="button" data-collection="legends">מצב אגדות הדשא</button>
       </div>
+      <div class="season-shortcuts" aria-label="בחירה מהירה של עונות מהעשור האחרון">
+        <span class="season-shortcuts-label">כל עונות העשור:</span>
+        <div class="season-shortcuts-list" id="seasonShortcuts" role="group" aria-label="בחירה לפי עונה"></div>
+      </div>
       <div class="results-line"><span id="resultsCount" aria-live="polite"></span><span>בחרו מידה והזמינו בוואטסאפ</span></div>
       <div class="product-grid" id="productGrid"></div>
       <div class="load-more-wrap"><button class="load-more" id="loadMore" type="button" hidden>הצג עוד חולצות</button></div>
@@ -728,6 +737,7 @@
     const teamFilter = document.querySelector("#teamFilter");
     const nationalTeamFilter = document.querySelector("#nationalTeamFilter");
     const seasonFilter = document.querySelector("#seasonFilter");
+    const seasonShortcuts = document.querySelector("#seasonShortcuts");
     const typeFilter = document.querySelector("#typeFilter");
     const searchFilter = document.querySelector("#searchFilter");
     const resultsCount = document.querySelector("#resultsCount");
@@ -827,7 +837,32 @@
       for (const season of seasons) {
         seasonFilter.add(new Option(season.label, season.id));
       }
+      const allSeasonsButton = document.createElement("button");
+      allSeasonsButton.className = "season-shortcut active";
+      allSeasonsButton.type = "button";
+      allSeasonsButton.dataset.seasonShortcut = "all";
+      allSeasonsButton.textContent = "כל העונות";
+      allSeasonsButton.setAttribute("aria-pressed", "true");
+      seasonShortcuts.append(allSeasonsButton);
+      for (const season of recentSeasons) {
+        const button = document.createElement("button");
+        button.className = "season-shortcut";
+        button.type = "button";
+        button.dataset.seasonShortcut = season.id;
+        button.textContent = season.id;
+        button.setAttribute("aria-label", season.current ? `${season.id}, העונה הנוכחית` : `עונת ${season.id}`);
+        button.setAttribute("aria-pressed", "false");
+        seasonShortcuts.append(button);
+      }
       updateTeamOptions();
+    }
+
+    function syncSeasonShortcuts() {
+      seasonShortcuts.querySelectorAll("[data-season-shortcut]").forEach((button) => {
+        const selected = button.dataset.seasonShortcut === seasonFilter.value;
+        button.classList.toggle("active", selected);
+        button.setAttribute("aria-pressed", String(selected));
+      });
     }
 
     function updateTeamOptions() {
@@ -856,6 +891,7 @@
     }
 
     function renderProducts(reset = true) {
+      syncSeasonShortcuts();
       if (reset) {
         filteredProducts = products.filter(matchesFilters);
         shownProducts = 0;
@@ -1073,6 +1109,14 @@
     renderProducts();
     renderCart();
     document.querySelector("#loadMore").addEventListener("click", () => renderProducts(false));
+    seasonShortcuts.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-season-shortcut]");
+      if (!button) return;
+      seasonFilter.value = button.dataset.seasonShortcut;
+      quickEra = "all";
+      document.querySelectorAll("[data-era]").forEach((item) => item.classList.remove("active"));
+      renderProducts();
+    });
 
     [leagueFilter, teamFilter, nationalTeamFilter, seasonFilter, typeFilter].forEach((control) => {
       control.addEventListener("change", () => {
