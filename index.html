@@ -452,15 +452,15 @@
           </select>
         </div>
         <div class="filter-control">
-          <label for="teamFilter">קבוצות</label>
+          <label for="teamFilter">קבוצות ומועדונים</label>
           <select id="teamFilter">
             <option value="all">כל הקבוצות</option>
           </select>
         </div>
         <div class="filter-control">
-          <label for="nationalTeamFilter">נבחרות</label>
+          <label for="nationalTeamFilter">נבחרות בלבד</label>
           <select id="nationalTeamFilter">
-            <option value="all">כל הנבחרות</option>
+            <option value="all">בחרו נבחרת</option>
           </select>
         </div>
         <div class="filter-control">
@@ -823,6 +823,7 @@
       for (const team of nationalTeams) {
         nationalTeamFilter.add(new Option(team.name, team.id));
       }
+      nationalTeamFilter.options[0].textContent = `בחרו נבחרת (${nationalTeams.length})`;
       for (const season of seasons) {
         seasonFilter.add(new Option(season.label, season.id));
       }
@@ -866,7 +867,8 @@
         document.querySelector("#loadMore").hidden = true;
         return;
       }
-      const pageSize = teamFilter.value === "all" ? productsPerPage : filteredProducts.length;
+      const hasTeamSelection = teamFilter.value !== "all" || nationalTeamFilter.value !== "all";
+      const pageSize = hasTeamSelection ? filteredProducts.length : productsPerPage;
       const page = filteredProducts.slice(shownProducts, shownProducts + pageSize);
       shownProducts += page.length;
       productGrid.insertAdjacentHTML("beforeend", page.map((product) => {
