@@ -589,12 +589,18 @@
       { id: "hapoel-petah-tikva", name: "הפועל פתח תקווה", league: "ליגת העל", primary: "#2364a4", secondary: "#eee9df", third: "#d82032", pattern: "solid", mark: "הפועל" },
       { id: "ironit-tiberias", name: "עירוני טבריה", league: "ליגת העל", primary: "#c92737", secondary: "#20242b", third: "#eee9df", pattern: "solid", mark: "טבריה" }
     ];
+    const currentSeasonStartYear = 2026;
+    const recentSeasons = Array.from({ length: 11 }, (_, index) => {
+      const startYear = currentSeasonStartYear - index;
+      const id = `${startYear}/${String(startYear + 1).slice(-2)}`;
+      return {
+        id,
+        label: index === 0 ? `${id} — העונה הנוכחית` : id,
+        current: index === 0
+      };
+    });
     const seasons = [
-      { id: "2026/27", label: "2026/27 — העונה הנוכחית", current: true },
-      { id: "2025/26", label: "2025/26" },
-      { id: "2020/21", label: "2020/21" },
-      { id: "2017/18", label: "2017/18" },
-      { id: "2016/17", label: "2016/17" },
+      ...recentSeasons,
       { id: "2015/16", label: "2015/16" },
       { id: "2014/15", label: "2014/15" },
       { id: "2011/12", label: "2011/12" },
@@ -834,7 +840,8 @@
         document.querySelector("#loadMore").hidden = true;
         return;
       }
-      const page = filteredProducts.slice(shownProducts, shownProducts + productsPerPage);
+      const pageSize = teamFilter.value === "all" ? productsPerPage : filteredProducts.length;
+      const page = filteredProducts.slice(shownProducts, shownProducts + pageSize);
       shownProducts += page.length;
       productGrid.insertAdjacentHTML("beforeend", page.map((product) => {
         const team = teamById[product.teamId];
